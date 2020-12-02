@@ -6,25 +6,17 @@ test_result
 *.pyc
 *.swp
 *.tar
-*.sh
 sbatch*
-*.ipynb
 
 # data
-pretrain/glove
-pretrain/bert-base-uncased
+pretrain*
+data*
 
 # virtualenv
 .virtual
 
 # result
 result*
-
-# test data
-data/test_wiki.json
-data/test_pubmed.json
-data/train_wiki+pubmed.json
-data/pubmed.json
 
 # tmp file
 pretrain.tar
