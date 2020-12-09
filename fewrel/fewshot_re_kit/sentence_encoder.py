@@ -133,7 +133,7 @@ class BERTPAIRSentenceEncoder(nn.Module):
                 pretrain_path,
                 num_labels=2)
         self.max_length = max_length
-        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        self.tokenizer = BertTokenizer.from_pretrained(pretrain_path)
 
     def forward(self, inputs):
         x = self.bert(inputs['word'], token_type_ids=inputs['seg'], attention_mask=inputs['mask'])[0]
@@ -170,7 +170,7 @@ class RobertaSentenceEncoder(nn.Module):
         nn.Module.__init__(self)
         self.roberta = RobertaModel.from_pretrained(pretrain_path)
         self.max_length = max_length
-        self.tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+        self.tokenizer = RobertaTokenizer.from_pretrained(pretrain_path)
         self.cat_entity_rep = cat_entity_rep
 
     def forward(self, inputs):
@@ -269,7 +269,7 @@ class RobertaPAIRSentenceEncoder(nn.Module):
                 pretrain_path,
                 num_labels=2)
         self.max_length = max_length
-        self.tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+        self.tokenizer = RobertaTokenizer.from_pretrained(pretrain_path)
 
     def forward(self, inputs):
         x = self.roberta(inputs['word'], attention_mask=inputs['mask'])[0]
