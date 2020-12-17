@@ -41,9 +41,9 @@ class Proto(fewrel.fewshot_re_kit.framework.FewShotREModel):
 
         # Prototypical Networks 
         # Ignore NA policy
-        support = torch.mean(support, 2) # Calculate prototype for each class
+        support = torch.mean(support, 2) # Calculate prototype for each class (B, N, 1, D)
         logits = self.__batch_dist__(support, query) # (B, total_Q, N)
-        minn, _ = logits.min(-1)
+        minn, _ = logits.min(-1) # dist for non of the above: (worst distance-1)
         logits = torch.cat([logits, minn.unsqueeze(2) - 1], 2) # (B, total_Q, N + 1)
         _, pred = torch.max(logits.view(-1, N + 1), 1)
         return logits, pred

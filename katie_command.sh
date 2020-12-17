@@ -8,10 +8,10 @@ KATIE_BASE_CMD="katie compute run distributed-pytorch \
   --num-workers 1 \
   --node-size Custom \
   --node-num-cores 32 \
-  --node-memory 64Gi \
-  --node-num-gpus 1 \
-  --pip-packages torch==1.6 transformers sklearn git+https://bbgithub.dev.bloomberg.com/sbrody18/FewRel@${BRANCH}
-  --python-module fewrel.train_demo \
+  --node-memory 200G \
+  --node-num-gpus 4 \
+  --pip-packages git+https://bbgithub.dev.bloomberg.com/sbrody18/FewRel@${BRANCH}
+  --python-module fewrel.fewrel_eval \
   --sync-launch tail \
   -- \
 "
