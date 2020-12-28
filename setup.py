@@ -13,5 +13,7 @@ setup(name='FewRel',
       install_requires=['scikit-learn',
                         'torch==1.6.0',
                         'transformers==3.4.0',
+                        'ujson',
+                        'wikipedia2vec'
                         ],
       zip_safe=False)

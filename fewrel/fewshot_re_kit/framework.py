@@ -19,14 +19,18 @@ def warmup_linear(global_step, warmup_step):
         return 1.0
 
 class FewShotREModel(nn.Module):
-    def __init__(self, my_sentence_encoder):
+    def __init__(self, my_sentence_encoder, multiple_gpu=True):
         '''
         sentence_encoder: Sentence encoder
         
         You need to set self.cost as your own loss function.
         '''
         nn.Module.__init__(self)
-        self.sentence_encoder = nn.DataParallel(my_sentence_encoder)
+        if multiple_gpu:
+            self.sentence_encoder = nn.DataParallel(my_sentence_encoder)
+        else:
+            self.sentence_encoder = my_sentence_encoder
+        self.sentence_encoder = my_sentence_encoder
         self.cost = nn.CrossEntropyLoss()
     
     def forward(self, support, query, N, K, Q):

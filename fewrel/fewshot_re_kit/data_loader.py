@@ -300,5 +300,3 @@ def get_loader_unsupervised(name, encoder, N, K, Q, batch_size,
             num_workers=num_workers,
             collate_fn=collate_fn)
     return iter(data_loader)
-
-

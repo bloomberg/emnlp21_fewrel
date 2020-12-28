@@ -1,7 +1,7 @@
 from fewrel.fewshot_re_kit.data_loader import get_loader, get_loader_pair, get_loader_unsupervised
 from fewrel.fewshot_re_kit.framework import FewShotREFramework
 from fewrel.fewshot_re_kit.sentence_encoder import CNNSentenceEncoder
-from fewrel.fewshot_re_kit.modular_encoder import ModularEncoder, BERTBaseLayer, RobertaBaseLayer
+from fewrel.fewshot_re_kit.modular_encoder import ModularEncoder, BERTBaseLayer, LukeBaseLayer, RobertaBaseLayer
 import fewrel.models
 from fewrel.models.proto import Proto
 from fewrel.models.gnn import GNN
@@ -57,6 +57,12 @@ def get_encoder(encoder_name, pretrain_ckpt, max_length, strategy):
             RobertaBaseLayer(pretrain_ckpt, max_length),
             get_field(os.path.join(pretrain_ckpt, "config.json"), "hidden_size"),
             strategy)
+    elif encoder_name == 'luke':
+        pretrain_ckpt = pretrain_ckpt or './pretrain/luke'
+        sentence_encoder = ModularEncoder(
+            LukeBaseLayer(pretrain_ckpt, max_length),
+            1024, # Hardcoded for now.
+            strategy)
     else:
         raise NotImplementedError
     
@@ -65,6 +71,8 @@ def get_encoder(encoder_name, pretrain_ckpt, max_length, strategy):
 def create_parser():
     parser = argparse.ArgumentParser()
     # Setup
+    parser.add_argument('--data_root', default='./fewrel/data',
+            help='path to the data folder')
     parser.add_argument('--train', default='train_wiki',
             help='train file')
     parser.add_argument('--val', default='val_wiki',
@@ -114,7 +122,7 @@ def create_parser():
     
     # model params
     parser.add_argument('--encoder', default='cnn',
-            help='encoder: cnn or bert or roberta')
+            help='encoder: cnn or bert or roberta or luke')
     parser.add_argument('--pool', default='cls',
             choices=['cls', 'cat_entity_reps'])
     parser.add_argument('--hidden_size', default=230, type=int,
@@ -126,9 +134,9 @@ def create_parser():
     parser.add_argument('--ckpt_name', type=str, default='',
            help='checkpoint name.')
 
-    # only for bert / roberta
+    # only for bert / roberta /luke
     parser.add_argument('--pretrain_ckpt', default=None,
-           help='bert / roberta pre-trained checkpoint')
+           help='bert / roberta / luke pre-trained checkpoint')
     
     # only for prototypical networks
     parser.add_argument('--dot', action='store_true', 
@@ -161,11 +169,11 @@ def main():
     sentence_encoder = get_encoder(encoder_name, opt.pretrain_ckpt, max_length, opt.pool)
 
     train_data_loader = get_loader(opt.train, sentence_encoder,
-            N=trainN, K=K, Q=Q, na_rate=opt.na_rate, batch_size=batch_size)
+            N=trainN, K=K, Q=Q, na_rate=opt.na_rate, batch_size=batch_size, root=opt.data_root)
     val_data_loader = get_loader(opt.val, sentence_encoder,
-            N=N, K=K, Q=Q, na_rate=opt.na_rate, batch_size=batch_size)
+            N=N, K=K, Q=Q, na_rate=opt.na_rate, batch_size=batch_size, root=opt.data_root)
     test_data_loader = get_loader(opt.test, sentence_encoder,
-            N=N, K=K, Q=Q, na_rate=opt.na_rate, batch_size=batch_size)
+            N=N, K=K, Q=Q, na_rate=opt.na_rate, batch_size=batch_size, root=opt.data_root)
     
     if opt.optim == 'sgd':
         pytorch_optim = optim.SGD
@@ -187,7 +195,10 @@ def main():
     if len(opt.ckpt_name) > 0:
         prefix += '-' + opt.ckpt_name
     
-    model = Proto(sentence_encoder, dot=opt.dot)
+    multiple_gpu = True
+    if encoder_name == "luke": # running luke model with multiple GPUs is buggy. 
+        multiple_gpu = False
+    model = Proto(sentence_encoder, dot=opt.dot, multiple_gpu=multiple_gpu)
     
     if not os.path.exists('checkpoint'):
         os.mkdir('checkpoint')
@@ -199,7 +210,7 @@ def main():
         model.cuda()
 
     if not opt.only_test:
-        if encoder_name in ['bert', 'roberta']:
+        if encoder_name in ['bert', 'roberta', 'luke']:
             bert_optim = True
         else:
             bert_optim = False

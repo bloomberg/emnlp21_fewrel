@@ -8,8 +8,8 @@ from torch.nn import functional as F
 
 class Proto(fewrel.fewshot_re_kit.framework.FewShotREModel):
     
-    def __init__(self, sentence_encoder, dot=False):
-        fewrel.fewshot_re_kit.framework.FewShotREModel.__init__(self, sentence_encoder)
+    def __init__(self, sentence_encoder, dot=False, multiple_gpu=True):
+        fewrel.fewshot_re_kit.framework.FewShotREModel.__init__(self, sentence_encoder, multiple_gpu)
         # self.fc = nn.Linear(hidden_size, hidden_size)
         self.drop = nn.Dropout()
         self.dot = dot
