@@ -30,7 +30,6 @@ class FewShotREModel(nn.Module):
             self.sentence_encoder = nn.DataParallel(my_sentence_encoder)
         else:
             self.sentence_encoder = my_sentence_encoder
-        self.sentence_encoder = my_sentence_encoder
         self.cost = nn.CrossEntropyLoss()
     
     def forward(self, support, query, N, K, Q):

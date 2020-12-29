@@ -1,3 +1,33 @@
+# Example commands
+
+## Training
+
+```
+python -m fewrel.fewrel_eval \
+  --test val_wiki \
+  --encoder {"cnn", "bert", "roberta", "luke"} \
+  --pool {"cls", "cat_entity_reps"} \
+  --data_root {path_to_data_folder} \
+  --batch_size {batch_size} \
+  --pretrain_ckpt {pretrained_model_path}
+```
+
+## Evaluation only
+```
+python -m fewrel.fewrel_eval \
+  --only_test \
+  --test val_wiki \
+  --encoder {"cnn", "bert", "roberta", "luke"} \
+  --pool {"cls", "cat_entity_reps"} \
+  --data_root {path_to_data_folder} \
+  --pretrain_ckpt {pretrained_model_path} \ # needed for getting model config
+  --load_ckpt {trained_checkpoint_path} \
+  --test_iter {num_of_eval_iteration}
+```
+
+# Trained model checkpoints
+Trained models are stored in the [bcs](http://swu389.s3.dev.obdc.bcs.bloomberg.com/). Note that these models are trained on GPU, and requires a GPU to run.
+
 # FewRel Dataset, Toolkits and Baseline Models
 
 Our benchmark website: [https://thunlp.github.io/fewrel.html](https://thunlp.github.io/fewrel.html)
