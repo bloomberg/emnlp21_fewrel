@@ -84,7 +84,7 @@ class FewShotREFramework:
         return: Checkpoint dict
         '''
         if os.path.isfile(ckpt):
-            checkpoint = torch.load(ckpt)
+            checkpoint = torch.load(ckpt, map_location=None if torch.cuda.is_available() else torch.device('cpu'))
             print("Successfully loaded checkpoint '%s'" % ckpt)
             return checkpoint
         else:

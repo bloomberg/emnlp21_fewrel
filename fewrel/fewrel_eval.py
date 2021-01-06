@@ -1,7 +1,7 @@
 from fewrel.fewshot_re_kit.data_loader import get_loader, get_loader_pair, get_loader_unsupervised
 from fewrel.fewshot_re_kit.framework import FewShotREFramework
 from fewrel.fewshot_re_kit.sentence_encoder import CNNSentenceEncoder
-from fewrel.fewshot_re_kit.modular_encoder import ModularEncoder, BERTBaseLayer, LukeBaseLayer, RobertaBaseLayer
+from fewrel.fewshot_re_kit.modular_encoder import ModularEncoder, BERTBaseLayer, RobertaBaseLayer
 import fewrel.models
 from fewrel.models.proto import Proto
 from fewrel.models.gnn import GNN
@@ -11,6 +11,7 @@ from fewrel.models.siamese import Siamese
 from fewrel.models.pair import Pair
 from fewrel.models.d import Discriminator
 from fewrel.models.mtb import Mtb
+from fewrel.util import get_encoder
 import sys
 import torch
 from torch import optim, nn
@@ -18,55 +19,6 @@ import numpy as np
 import json
 import argparse
 import os
-
-def get_field(json_file, field_name):
-    assert os.path.exists(json_file), "file not found: " + json_file
-    with open(json_file, "r") as input:
-        obj = json.load(input)
-        assert field_name in obj, \
-            "field '" + field_name + "' not found in json obj. Available fields are:\n\t" + str([str(key) for key in obj.keys()])
-        return obj[field_name]
-
-def get_encoder(encoder_name, pretrain_ckpt, max_length, strategy):
-    if encoder_name == 'cnn':
-        prefix = pretrain_ckpt or 'glove/glove'
-        try:
-            mat_file = './pretrain/' + prefix + '_mat.npy'
-            glove_mat = np.load(mat_file)
-        except:
-            raise Exception("Cannot find non-contextual embedding file:", mat_file)
-        try:
-            index_file = './pretrain/'+ prefix + '_word2id.json'
-            glove_word2id = json.load(open(index_file))
-        except:
-            raise Exception("Cannot find non-contextual embedding index file:", index_file)
-        
-        sentence_encoder = CNNSentenceEncoder(
-                glove_mat,
-                glove_word2id,
-                max_length)
-    elif encoder_name == 'bert':
-        pretrain_ckpt = pretrain_ckpt or './pretrain/bert-base-uncased'
-        sentence_encoder = ModularEncoder(
-            BERTBaseLayer(pretrain_ckpt, max_length),
-            get_field(os.path.join(pretrain_ckpt, "config.json"), "hidden_size"),
-            strategy)
-    elif encoder_name == 'roberta':
-        pretrain_ckpt = pretrain_ckpt or './pretrain/roberta-base'
-        sentence_encoder = ModularEncoder(
-            RobertaBaseLayer(pretrain_ckpt, max_length),
-            get_field(os.path.join(pretrain_ckpt, "config.json"), "hidden_size"),
-            strategy)
-    elif encoder_name == 'luke':
-        pretrain_ckpt = pretrain_ckpt or './pretrain/luke'
-        sentence_encoder = ModularEncoder(
-            LukeBaseLayer(pretrain_ckpt, max_length),
-            1024, # Hardcoded for now.
-            strategy)
-    else:
-        raise NotImplementedError
-    
-    return sentence_encoder
 
 def create_parser():
     parser = argparse.ArgumentParser()
@@ -122,7 +74,7 @@ def create_parser():
     
     # model params
     parser.add_argument('--encoder', default='cnn',
-            help='encoder: cnn or bert or roberta or luke')
+            help='encoder: cnn or bert or spanbert or roberta or luke')
     parser.add_argument('--pool', default='cls',
             choices=['cls', 'cat_entity_reps'])
     parser.add_argument('--hidden_size', default=230, type=int,
@@ -134,9 +86,9 @@ def create_parser():
     parser.add_argument('--ckpt_name', type=str, default='',
            help='checkpoint name.')
 
-    # only for bert / roberta /luke
+    # only for bert / spanbert/ roberta /luke
     parser.add_argument('--pretrain_ckpt', default=None,
-           help='bert / roberta / luke pre-trained checkpoint')
+           help='bert / spanbert/ roberta / luke pre-trained checkpoint')
     
     # only for prototypical networks
     parser.add_argument('--dot', action='store_true', 
@@ -145,6 +97,8 @@ def create_parser():
     # experiment
     parser.add_argument('--mask_entity', action='store_true',
            help='mask entity names')
+    parser.add_argument('--no_entity_token', action='store_true',
+           help='whether to remove special tokens before and after entities')
 
     return parser
 
@@ -166,7 +120,13 @@ def main():
     print("pooler: {}".format(opt.pool))
     print("max_length: {}".format(max_length))
     
-    sentence_encoder = get_encoder(encoder_name, opt.pretrain_ckpt, max_length, opt.pool)
+    sentence_encoder = get_encoder(
+            encoder_name, 
+            opt.pretrain_ckpt, 
+            max_length, 
+            opt.pool, 
+            mask_entity = opt.mask_entity, 
+            no_entity_token = opt.no_entity_token)
 
     train_data_loader = get_loader(opt.train, sentence_encoder,
             N=trainN, K=K, Q=Q, na_rate=opt.na_rate, batch_size=batch_size, root=opt.data_root)
@@ -194,6 +154,10 @@ def main():
         prefix += '-dot'
     if len(opt.ckpt_name) > 0:
         prefix += '-' + opt.ckpt_name
+    if opt.mask_entity:
+        prefix += "-mask_entity"
+    if opt.no_entity_token:
+        prefix += '-no_entity_token'
     
     multiple_gpu = True
     if encoder_name == "luke": # running luke model with multiple GPUs is buggy. 
@@ -210,7 +174,7 @@ def main():
         model.cuda()
 
     if not opt.only_test:
-        if encoder_name in ['bert', 'roberta', 'luke']:
+        if encoder_name in ['bert', 'spanbert', 'roberta', 'luke']:
             bert_optim = True
         else:
             bert_optim = False

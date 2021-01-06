@@ -300,3 +300,39 @@ def get_loader_unsupervised(name, encoder, N, K, Q, batch_size,
             num_workers=num_workers,
             collate_fn=collate_fn)
     return iter(data_loader)
+
+
+def batch_process(sentence_encoder, batch):
+    inputs = [sentence_encoder.tokenize(i['tokens'], i['h'][2][0], i['t'][2][0]) for i in batch]
+    word, pos1, pos2, mask = zip(*inputs)
+    representation = sentence_encoder({
+                "word": torch.tensor(word).long(),
+                "pos1": torch.tensor(pos1).long(),
+                "pos2": torch.tensor(pos2).long(),
+                "mask": torch.tensor(mask).long()
+            })
+    return representation
+        
+
+def load_data_for_alt_eval(name, sentence_encoder, num_instances=50, batch_size=100, root = "./data"):
+    assert os.path.exists(root), "Could not find data root: " + root
+    path = os.path.join(root, name + ".json")
+    if not os.path.exists(path):
+        print("[ERROR] Data file does not exist!")
+        assert(0)
+    json_data = json.load(open(path))
+    
+    instances = []
+    label_to_idxs = {}
+    for relation in json_data:
+        print(relation)
+        examples = json_data[relation][0:num_instances]
+        label_to_idxs[relation] = (len(instances), len(instances) + len(examples))
+        for b in range(0, len(examples), batch_size):
+            e = min(b + batch_size, len(examples))
+            print("processing", b, " to ", e)
+            reps = batch_process(sentence_encoder, examples[b:e])
+            instances.extend(reps.unbind())
+        
+    return instances, label_to_idxs
+            

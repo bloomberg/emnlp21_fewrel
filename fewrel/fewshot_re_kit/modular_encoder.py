@@ -73,21 +73,23 @@ class ModularEncoder(nn.Module):
         representation = self.rep(encoding, inputs["pos1"], inputs["pos2"])
         return representation
     
-    def tokenize(self, raw_tokens, pos_head, pos_tail, mask_entity=False):
-        return self.base.tokenize(raw_tokens, pos_head, pos_tail, mask_entity)
+    def tokenize(self, raw_tokens, pos_head, pos_tail):
+        return self.base.tokenize(raw_tokens, pos_head, pos_tail)
 
 class BERTBaseLayer(nn.Module):
 
-    def __init__(self, pretrain_path, max_length): 
+    def __init__(self, pretrain_path, max_length, mask_entity=False, no_entity_token=False): 
         nn.Module.__init__(self)
         self.bert = BertModel.from_pretrained(pretrain_path)
         self.max_length = max_length
         self.tokenizer = BertTokenizer.from_pretrained(pretrain_path)
+        self.mask_entity = mask_entity
+        self.no_entity_token = no_entity_token
     
     def forward(self, words, mask):
         return self.bert(words, mask)[0]
     
-    def tokenize(self, raw_tokens, pos_head, pos_tail, mask_entity=False):
+    def tokenize(self, raw_tokens, pos_head, pos_tail):
         # token -> index
         tokens = ['[CLS]']
         cur_pos = 0
@@ -96,18 +98,18 @@ class BERTBaseLayer(nn.Module):
         for token in raw_tokens:
             token = token.lower()
             if cur_pos == pos_head[0]:
-                tokens.append('[unused0]')
                 pos1_in_index = len(tokens)
+                if not self.no_entity_token: tokens.append('[unused0]')
             if cur_pos == pos_tail[0]:
-                tokens.append('[unused1]')
                 pos2_in_index = len(tokens)
-            if mask_entity and ((pos_head[0] <= cur_pos and cur_pos <= pos_head[-1]) or (pos_tail[0] <= cur_pos and cur_pos <= pos_tail[-1])):
+                if not self.no_entity_token: tokens.append('[unused1]')
+            if self.mask_entity and ((pos_head[0] <= cur_pos and cur_pos <= pos_head[-1]) or (pos_tail[0] <= cur_pos and cur_pos <= pos_tail[-1])):
                 tokens += ['[unused4]']
             else:
                 tokens += self.tokenizer.tokenize(token)
-            if cur_pos == pos_head[-1]:
+            if cur_pos == pos_head[-1] and not self.no_entity_token:
                 tokens.append('[unused2]')
-            if cur_pos == pos_tail[-1]:
+            if cur_pos == pos_tail[-1] and not self.no_entity_token:
                 tokens.append('[unused3]')
             cur_pos += 1
         indexed_tokens = self.tokenizer.convert_tokens_to_ids(tokens)
@@ -131,7 +133,7 @@ class BERTBaseLayer(nn.Module):
         pos1_in_index = min(self.max_length, pos1_in_index)
         pos2_in_index = min(self.max_length, pos2_in_index)
 
-        return indexed_tokens, pos1_in_index - 1, pos2_in_index - 1, mask
+        return indexed_tokens, pos1_in_index, pos2_in_index, mask
 
 class RobertaBaseLayer(nn.Module):
 
@@ -220,7 +222,7 @@ class RobertaBaseLayer(nn.Module):
 
 
 class LukeBaseLayer(nn.Module):
-    def __init__(self, pretrain_path, max_length):
+    def __init__(self, pretrain_path, max_length, mask_entity=False, no_entity_token=False):
         nn.Module.__init__(self)
         # Load pretrained LUKE model
         model_archive = ModelArchive.load(pretrain_path)
@@ -228,6 +230,9 @@ class LukeBaseLayer(nn.Module):
         self.max_mention_length = model_archive.max_mention_length
         self.max_length = max_length
         self.luke_model = self._load_luke_model(model_archive)
+
+        self.mask_entity = mask_entity
+        self.no_entity_token = no_entity_token
 
     def _load_luke_model(self, model_archive):
         entity_vocab = model_archive.entity_vocab
@@ -261,7 +266,7 @@ class LukeBaseLayer(nn.Module):
         word_segment_ids = torch.zeros(words.shape, dtype=torch.long)
         return self.luke_model(words, word_segment_ids, mask)[0]
 
-    def tokenize(self, raw_tokens, pos_head, pos_tail, mask_entity=False):
+    def tokenize(self, raw_tokens, pos_head, pos_tail):
         token_spans = dict(
             head=(pos_head[0], pos_head[-1] + 1), tail=(pos_tail[0], pos_tail[-1] + 1)
         )
@@ -291,9 +296,15 @@ class LukeBaseLayer(nn.Module):
             span = eval(span_name)
             tokens += self.tokenizer.tokenize(text[cur : span[0]])
             start = len(tokens)
-            tokens.append(HEAD_TOKEN if span_name == "span_h" else TAIL_TOKEN)
-            tokens += self.tokenizer.tokenize(text[span[0] : span[1]])
-            tokens.append(HEAD_TOKEN if span_name == "span_t" else TAIL_TOKEN)
+            if not self.no_entity_token:
+                tokens.append(HEAD_TOKEN if span_name == "span_h" else TAIL_TOKEN)
+            entity_tokens = self.tokenizer.tokenize(text[span[0] : span[1]])
+            if self.mask_entity:
+                tokens += [MASK_TOKEN] * len(entity_tokens)
+            else:
+                tokens += entity_tokens 
+            if not self.no_entity_token:
+                tokens.append(HEAD_TOKEN if span_name == "span_h" else TAIL_TOKEN)
             token_spans[span_name] = (start, len(tokens))
             cur = span[1]
 
