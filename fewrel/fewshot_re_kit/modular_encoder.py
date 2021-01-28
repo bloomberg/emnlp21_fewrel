@@ -78,13 +78,13 @@ class ModularEncoder(nn.Module):
 
 class BERTBaseLayer(nn.Module):
 
-    def __init__(self, pretrain_path, max_length, mask_entity=False, no_entity_token=False): 
+    def __init__(self, pretrain_path, max_length, mask_entity=False, add_entity_token=True): 
         nn.Module.__init__(self)
         self.bert = BertModel.from_pretrained(pretrain_path)
         self.max_length = max_length
         self.tokenizer = BertTokenizer.from_pretrained(pretrain_path)
         self.mask_entity = mask_entity
-        self.no_entity_token = no_entity_token
+        self.add_entity_token = add_entity_token
     
     def forward(self, words, mask):
         return self.bert(words, mask)[0]
@@ -99,17 +99,17 @@ class BERTBaseLayer(nn.Module):
             token = token.lower()
             if cur_pos == pos_head[0]:
                 pos1_in_index = len(tokens)
-                if not self.no_entity_token: tokens.append('[unused0]')
+                if self.add_entity_token: tokens.append('[unused0]')
             if cur_pos == pos_tail[0]:
                 pos2_in_index = len(tokens)
-                if not self.no_entity_token: tokens.append('[unused1]')
+                if self.add_entity_token: tokens.append('[unused1]')
             if self.mask_entity and ((pos_head[0] <= cur_pos and cur_pos <= pos_head[-1]) or (pos_tail[0] <= cur_pos and cur_pos <= pos_tail[-1])):
                 tokens += ['[unused4]']
             else:
                 tokens += self.tokenizer.tokenize(token)
-            if cur_pos == pos_head[-1] and not self.no_entity_token:
+            if cur_pos == pos_head[-1] and self.add_entity_token:
                 tokens.append('[unused2]')
-            if cur_pos == pos_tail[-1] and not self.no_entity_token:
+            if cur_pos == pos_tail[-1] and self.add_entity_token:
                 tokens.append('[unused3]')
             cur_pos += 1
         indexed_tokens = self.tokenizer.convert_tokens_to_ids(tokens)
@@ -137,16 +137,18 @@ class BERTBaseLayer(nn.Module):
 
 class RobertaBaseLayer(nn.Module):
 
-    def __init__(self, pretrain_path, max_length): 
+    def __init__(self, pretrain_path, max_length, mask_entity=False, add_entity_token=True): 
         nn.Module.__init__(self)
         self.roberta = RobertaModel.from_pretrained(pretrain_path)
         self.max_length = max_length
         self.tokenizer = RobertaTokenizer.from_pretrained(pretrain_path)
+        self.mask_entity = mask_entity
+        self.add_entity_token = add_entity_token
     
     def forward(self, words, mask):
         return self.roberta(words, attention_mask=mask)[0]
     
-    def tokenize(self, raw_tokens, pos_head, pos_tail, mask_entity=False):
+    def tokenize(self, raw_tokens, pos_head, pos_tail):
         def getIns(bped, bpeTokens, tokens, L):
             resL = 0
             tkL = " ".join(tokens[:L])
@@ -180,23 +182,32 @@ class RobertaBaseLayer(nn.Module):
         E2e = 'madeupword0003'
         ins = [(hiL, E1b), (hiR, E1e), (tiL, E2b), (tiR, E2e)]
         ins = sorted(ins)
-        pE1 = 0
-        pE2 = 0
-        pE1_ = 0
-        pE2_ = 0
-        for i in range(0, 4):
-            sst.insert(ins[i][0] + i, ins[i][1])
-            if ins[i][1] == E1b:
-                pE1 = ins[i][0] + i
-            elif ins[i][1] == E2b:
-                pE2 = ins[i][0] + i
-            elif ins[i][1] == E1e:
-                pE1_ = ins[i][0] + i
-            else:
-                pE2_ = ins[i][0] + i
+        pE1 = hiL
+        pE2 = tiL
+        pE1_ = hiR
+        pE2_ = tiR
+        if self.add_entity_token:
+            for i in range(0, 4):
+                sst.insert(ins[i][0] + i, ins[i][1])
+                if ins[i][1] == E1b:
+                    pE1 = ins[i][0] + i
+                elif ins[i][1] == E2b:
+                    pE2 = ins[i][0] + i
+                elif ins[i][1] == E1e:
+                    pE1_ = ins[i][0] + i
+                else:
+                    pE2_ = ins[i][0] + i
+        if self.mask_entity:
+            # If special token is inserted before entity, do not mask that.
+            pE1_start = pE1 + 1 if self.add_entity_token else pE1
+            pE2_start = pE2 + 1 if self.add_entity_token else pE2
+            sst[pE1_start : pE1_] = ['<mask>'] * (pE1_ - pE1_start)
+            sst[pE2_start : pE2_] = ['<mask>'] * (pE2_ - pE2_start)
+        sst = ['<s>'] + sst
+        # Advance the index by one because of '<s>' is inserted
         pos1_in_index = pE1 + 1
         pos2_in_index = pE2 + 1
-        sst = ['<s>'] + sst
+
         indexed_tokens = self.tokenizer.convert_tokens_to_ids(sst)
 
         # padding
@@ -218,11 +229,11 @@ class RobertaBaseLayer(nn.Module):
         pos1_in_index = min(self.max_length, pos1_in_index)
         pos2_in_index = min(self.max_length, pos2_in_index)
 
-        return indexed_tokens, pos1_in_index - 1, pos2_in_index - 1, mask
+        return indexed_tokens, pos1_in_index, pos2_in_index, mask
 
 
 class LukeBaseLayer(nn.Module):
-    def __init__(self, pretrain_path, max_length, mask_entity=False, no_entity_token=False):
+    def __init__(self, pretrain_path, max_length, mask_entity=False, add_entity_token=True):
         nn.Module.__init__(self)
         # Load pretrained LUKE model
         model_archive = ModelArchive.load(pretrain_path)
@@ -232,7 +243,7 @@ class LukeBaseLayer(nn.Module):
         self.luke_model = self._load_luke_model(model_archive)
 
         self.mask_entity = mask_entity
-        self.no_entity_token = no_entity_token
+        self.add_entity_token = add_entity_token
 
     def _load_luke_model(self, model_archive):
         entity_vocab = model_archive.entity_vocab
@@ -248,7 +259,7 @@ class LukeBaseLayer(nn.Module):
             [word_emb, head_emb, tail_emb]
         )
         self.tokenizer.add_special_tokens(
-            dict(additional_special_tokens=[HEAD_TOKEN, TAIL_TOKEN])
+            dict(additional_special_tokens=[HEAD_TOKEN, TAIL_TOKEN, MASK_TOKEN])
         )
 
         entity_emb = model_weights["entity_embeddings.entity_embeddings.weight"]
@@ -296,14 +307,14 @@ class LukeBaseLayer(nn.Module):
             span = eval(span_name)
             tokens += self.tokenizer.tokenize(text[cur : span[0]])
             start = len(tokens)
-            if not self.no_entity_token:
+            if self.add_entity_token:
                 tokens.append(HEAD_TOKEN if span_name == "span_h" else TAIL_TOKEN)
             entity_tokens = self.tokenizer.tokenize(text[span[0] : span[1]])
             if self.mask_entity:
                 tokens += [MASK_TOKEN] * len(entity_tokens)
             else:
                 tokens += entity_tokens 
-            if not self.no_entity_token:
+            if self.add_entity_token:
                 tokens.append(HEAD_TOKEN if span_name == "span_h" else TAIL_TOKEN)
             token_spans[span_name] = (start, len(tokens))
             cur = span[1]

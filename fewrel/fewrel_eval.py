@@ -126,7 +126,7 @@ def main():
             max_length, 
             opt.pool, 
             mask_entity = opt.mask_entity, 
-            no_entity_token = opt.no_entity_token)
+            add_entity_token = not opt.no_entity_token)
 
     train_data_loader = get_loader(opt.train, sentence_encoder,
             N=trainN, K=K, Q=Q, na_rate=opt.na_rate, batch_size=batch_size, root=opt.data_root)

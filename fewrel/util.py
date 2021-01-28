@@ -34,7 +34,7 @@ def get_encoder(encoder_name,
         strategy, 
         load_ckpt=None, 
         mask_entity=False,
-        no_entity_token=False):
+        add_entity_token=True):
     if encoder_name == 'cnn':
         prefix = pretrain_ckpt or 'glove/glove'
         try:
@@ -55,19 +55,19 @@ def get_encoder(encoder_name,
     elif encoder_name == 'bert' or encoder_name == 'spanbert':
         pretrain_ckpt = pretrain_ckpt or './pretrain/bert-base-uncased'
         sentence_encoder = ModularEncoder(
-            BERTBaseLayer(pretrain_ckpt, max_length, mask_entity, no_entity_token),
+            BERTBaseLayer(pretrain_ckpt, max_length, mask_entity, add_entity_token),
             get_field(os.path.join(pretrain_ckpt, "config.json"), "hidden_size"),
             strategy)
     elif encoder_name == 'roberta':
         pretrain_ckpt = pretrain_ckpt or './pretrain/roberta-base'
         sentence_encoder = ModularEncoder(
-            RobertaBaseLayer(pretrain_ckpt, max_length),
+            RobertaBaseLayer(pretrain_ckpt, max_length, mask_entity, add_entity_token),
             get_field(os.path.join(pretrain_ckpt, "config.json"), "hidden_size"),
             strategy)
     elif encoder_name == 'luke':
         pretrain_ckpt = pretrain_ckpt or './pretrain/luke'
         sentence_encoder = ModularEncoder(
-            LukeBaseLayer(pretrain_ckpt, max_length, mask_entity, no_entity_token),
+            LukeBaseLayer(pretrain_ckpt, max_length, mask_entity, add_entity_token),
             1024, # Hardcoded for now.
             strategy)
     else:

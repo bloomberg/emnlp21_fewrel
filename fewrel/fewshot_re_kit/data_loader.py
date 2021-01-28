@@ -47,7 +47,8 @@ class FewRelDataset(data.Dataset):
         for i, class_name in enumerate(target_classes):
             indices = np.random.choice(
                     list(range(len(self.json_data[class_name]))), 
-                    self.K + self.Q, False)
+                    self.K + self.Q,
+                    len(self.json_data[class_name]) < self.K + self.Q)
             count = 0
             for j in indices:
                 word, pos1, pos2, mask = self.__getraw__(

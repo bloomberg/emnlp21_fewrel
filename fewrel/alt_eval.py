@@ -129,7 +129,7 @@ def main():
             opt.pool,
             opt.load_ckpt,
             mask_entity=opt.mask_entity, 
-            no_entity_token=opt.no_entity_token)
+            add_entity_token=not opt.no_entity_token)
 
     instances, label_to_idxs = load_data_for_alt_eval(opt.test, sentence_encoder,
             num_instances=opt.N, batch_size=100, root=opt.data_root)
