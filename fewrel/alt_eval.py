@@ -136,7 +136,6 @@ def main():
 
     model = Proto(sentence_encoder, dot=opt.dot)
     if torch.cuda.is_available():
-        instances.cuda()
         model.cuda()
     model.eval()
 
