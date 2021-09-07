@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from fewrel.fewshot_re_kit.data_loader import get_loader, get_loader_pair, get_loader_unsupervised
 from fewrel.fewshot_re_kit.framework import FewShotREFramework
 from fewrel.fewshot_re_kit.sentence_encoder import CNNSentenceEncoder, BERTSentenceEncoder, BERTPAIRSentenceEncoder, RobertaSentenceEncoder, RobertaPAIRSentenceEncoder
@@ -254,9 +256,6 @@ def check_data():
     if not os.path.exists("./data"):
         base_dir = os.path.dirname(__file__)
         os.system("ln -s {} .".format(os.path.join(base_dir, "data")))
-    if not os.path.exists("./pretrain"):
-        os.system("wget http://libnlp.s3.dev.obdc.bcs.bloomberg.com/data/fewrel/pretrain.tar -o dummy")
-        os.system("tar -xvf pretrain.tar")    
 
 if __name__ == "__main__":
     check_data()

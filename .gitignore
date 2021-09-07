@@ -10,7 +10,6 @@ sbatch*
 
 # data
 pretrain*
-data*
 
 # virtualenv
 .virtual

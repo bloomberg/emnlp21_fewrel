@@ -304,6 +304,12 @@ def get_loader_unsupervised(name, encoder, N, K, Q, batch_size,
 
 
 def batch_process(sentence_encoder, batch):
+    """ Get sentence representations for a batch of examples.
+
+    Arguments:
+        sentence_encoder (nn.Module): a sentence encoder object.
+        batch (list): a list of input examples to the sentence_encoder.
+    """
     inputs = [sentence_encoder.tokenize(i['tokens'], i['h'][2][0], i['t'][2][0]) for i in batch]
     word, pos1, pos2, mask = zip(*inputs)
     representation = sentence_encoder({
@@ -316,7 +322,17 @@ def batch_process(sentence_encoder, batch):
         
 
 def load_data_for_alt_eval(name, sentence_encoder, num_instances=50, batch_size=100, root = "./data"):
-    assert os.path.exists(root), "Could not find data root: " + root
+    """Load data for the alternate evaluation strategy.
+
+    Arguments:
+        name (str): name of the data file to be evaluated.
+        sentence_encoder (nn.Module): a sentence encoder object.
+        num_instances (int): number of examples to be sampled for each relation.
+        batch_size (int): number of examples to be processed in a batch.
+        root(str): path the directory containing the data file.
+    """
+    if not os.path.exists(root):
+        raise FileNotFoundError("Could not find data root: " + root)
     path = os.path.join(root, name + ".json")
     if not os.path.exists(path):
         print("[ERROR] Data file does not exist!")

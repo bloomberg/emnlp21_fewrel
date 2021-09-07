@@ -1,3 +1,17 @@
+#!/usr/bin/env python3
+
+###############################################################################
+# This file was added to the original FewRel repository as part of the work
+# described in the paper "Towards Realistic Few-Shot Relation Extraction",
+# published in EMNLP 2021.
+#
+# It contains a utility method for constructing a new dataset by removing
+# relations from an existing one or adding relations from another dataset. 
+# 
+# Authors: Sam Brody (sbrody18@bloomberg.net), Sichao Wu (swu389@bloomberg.net),
+#          Adrian Benton (abenton10@bloomberg.net)
+###############################################################################
+
 import argparse
 import json
 import os
@@ -17,17 +31,13 @@ def add_rel(args: argparse.Namespace) -> None:
         for rel in args.rels:
             if rel not in src_json:
                 warnings.warn(
-                    "Relation [{}] is not in source data file [{}]".format(
-                        rel, args.src
-                    )
+                    f"Relation [{rel}] is not in source data file [{arg.src}]"
                 )
                 continue
             if rel in dst_json:
                 warnings.warn(
-                    "Relation [{}] is already in destination data file [{}] "
-                    "Augmenting the existing examples from the source data file [{}]".format(
-                        rel, args.dst, args.src
-                    )
+                    f"Relation [{rel}] is already in destination data file [{args.dst}] "
+                    f"Augmenting the existing examples from the source data file [{args.src}]"
                 )
                 dst_json[rel].extend(src_json[rel])
             else:
@@ -45,9 +55,7 @@ def del_rel(args: argparse.Namespace) -> None:
         for rel in args.rels:
             if rel not in in_json:
                 warnings.warn(
-                    "Relation [{}] is not in data file [{}]. Skipping.".format(
-                        rel, args.input
-                    )
+                    f"Relation [{rel}] is not in data file [{args.input}]. Skipping."
                 )
             else:
                 del in_json[rel]

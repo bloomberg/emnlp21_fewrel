@@ -21,7 +21,8 @@ def warmup_linear(global_step, warmup_step):
 class FewShotREModel(nn.Module):
     def __init__(self, my_sentence_encoder, multiple_gpu=True):
         '''
-        sentence_encoder: Sentence encoder
+        my_sentence_encoder: Sentence encoder
+        multiple_gpu: Set to True if running on multiple GPUs.
         
         You need to set self.cost as your own loss function.
         '''
